@@ -1,0 +1,30 @@
+{
+  "appMeta" : {
+  "swagger": "2.0",
+  "info": {
+    "description": "This is a Sample document.  You can find out more about TIS at [http://tis.io](http://tis.io) or on [irc.freenode.net, #tis](http://tis.io/irc/).      For this sample, you can use the api key `special-key` to test the authorization     filters.",
+    "version": "1.0.0",
+    "title": "User Management",
+    "termsOfService": "http://tis.io/terms/",
+    "contact": {
+      "email": "apiteam@tis.io"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "host": "users.tis.io",
+  "basePath": "/api",
+  "schemes": [
+    "https",
+    "http"
+  ],
+  "externalDocs": {
+    "description": "Find out more about Swagger",
+    "url": "http://swagger.io"
+  }
+},
+"schemaFolder" : "schema",
+"routesFolder" : "routes"
+}
