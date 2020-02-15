@@ -2,6 +2,7 @@
   "requires": true,
   "lockfileVersion": 1,
   "dependencies": {
+    "express": "^4.17.1",
     "joi": "^14.3.1",
     "joi-to-swagger": "^3.1.0",
     "json2yaml": "^1.1.0",
@@ -14,9 +15,9 @@
     "swagger": "./index.js"
   },
   "name": "swaggerise",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Package to convert joi schema and metadata to swagger json.",
-  "main": "index.js",
+  "main": "src/index.js",
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

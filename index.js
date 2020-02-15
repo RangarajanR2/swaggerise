@@ -115,6 +115,9 @@ let constructParam = function(meta, swagObject){
 let standardResponses = {
   "200": {
     "description": "successful operation"
+  },
+  "404": {
+    "description": "Resource not found"
   }
 }
 
@@ -147,6 +150,7 @@ let processDir = function(folder,clonableParents){
           }else if(fs.statSync(file).isFile()){
             return processFile(file, parents).then( (fileMeta) => {
               Object.assign(swag['paths'], fileMeta.paths);
+              console.log('Filemeta', fileMeta);
               swag['tags'].push(fileMeta.tags);
               resolution();
             }).catch((err) => {
@@ -173,27 +177,32 @@ let processFile = function(file, parents){
     if(!router){
       return reject("Cannot find a valid router in "+file);
     }
-  annotations.get(file, (err, annotations) => {
+    //This is a router file. Add parents info if not exists.
+    parents = parents instanceof Array ? (parents.length == 0 ? [getParentName(file)] : parents) : parents;
+  annotations.get(file, (err, annos) => {
     if(err){
       return reject(err);
     }
-    let moduleMeta = annotations['module'];
-    delete annotations['module'];
+    let moduleMeta = annos['module'];
+    delete annos['module'];
     let moduleDesc = {
-      name : (parents instanceof Array) ? parents[parents.length - 1] : parents,
-      description : moduleMeta.description,
-      externalDocs : {
+      name : (parents instanceof Array) ? (parents.length == 0 ? getParentName(file) : parents[parents.length - 1]) : parents,
+      description : moduleMeta.description
+    }
+    if(moduleMeta.externalDocDesc || moduleMeta.externalDocUrl){
+      moduleDesc.externalDocs = {
         description : moduleMeta.externalDocDesc,
         url : moduleMeta.externalDocUrl
       }
     }
-    let annotationKeys = Object.keys(annotations);
+    let annotationKeys = Object.keys(annos);
     for(let keyIndex in annotationKeys){
-      if(parseInt(annotationKeys[keyIndex]) === NaN){
-        delete annotations[annotationKeys[keyIndex]];
+      if(isNaN(parseInt(annotationKeys[keyIndex]))){
+        console.log("Deleting :"+annotationKeys[keyIndex])
+        delete annos[annotationKeys[keyIndex]];
       }
     }
-    let processedAnnos = processAnnotation(annotations, router, parents);
+    let processedAnnos = processAnnotation(annos, router, parents);
     resolve({
       paths : processedAnnos,
       tags : moduleDesc
@@ -202,60 +211,82 @@ let processFile = function(file, parents){
   })
 }
 
+let getParentName = function(file){
+  let fileNameParts = file.split(path.sep);
+  let fileName = fileNameParts[fileNameParts.length - 1];
+  let extensionlessFName = fileName.split('.')[0];
+  let tempName = extensionlessFName.toLowerCase();
+  return tempName[0].toUpperCase() + tempName.slice(1,tempName.length);
+}
+
 let processAnnotation = function(annotationObject, router, parents){
     //Do Something here.
     let retObj = {};
-    for(let routerNumber in annotationObject){
-      let endPoint = router.stack[routerNumber].route.path;
-      if(!retObj[endPoint]){
-        retObj[endPoint] = {};
-      }
-      let methods = annotationObject[routerNumber];
-      for(let method in methods){
-        let currentObj = {}
-        let annotations = methods[method];
-        if(annotations['parameters']){
-          let params = joiToSwagger(annotations['parameters']);
-          Object.assign(currentObj, params);
+    try {
+      for(let routerNumber in annotationObject){
+        routerNumber = parseInt(routerNumber);
+        let endPoint = router.stack[routerNumber].route.path;
+        if(!retObj[endPoint]){
+          retObj[endPoint] = {};
         }
-        if(annotations['summary']){
-          currentObj['summary'] = annotations['summary']
-        }
-        if(parents){
-          if(parents instanceof String){
-            parents = [parents];
+        let methods = annotationObject[routerNumber];
+        for(let method in methods){
+          let currentObj = {}
+          let annos = methods[method];
+          if(annos['parameters']){
+            let params = joiToSwagger(annos['parameters']);
+            Object.assign(currentObj, params);
           }
-          currentObj['tags'] = parents;
-        }
-        if(annotations['description']){
-          currentObj['description'] = annotations['description']
-        }
-        if(annotations['operationId']){
-          currentObj['operationId'] = annotations['operationId']
-        }
-        if(annotations['produces']){
+          if(annos['summary']){
+            currentObj['summary'] = annos['summary']
+          }
+          if(parents){
+            if(parents instanceof String){
+              parents = [parents];
+            }
+            currentObj['tags'] = parents;
+          }
+          if(annos['description']){
+            currentObj['description'] = annos['description']
+          }
+          if(annos['operationId']){
+            currentObj['operationId'] = annos['operationId']
+          }
+          if(annos['produces']){
+            try {
+              currentObj['produces'] = JSON.parse(annos['produces']);
+            } catch (error) {
+              console.log('Annotation:Produces must be array object for endPoint '+endPoint+" and method "+method)
+            }
+          }
+          if(annos['consumes']){
+            try {
+              currentObj['consumes'] = JSON.parse(annos['consumes']);
+            } catch (error) {
+              console.log('Annotation:consumes must be array object for endPoint '+endPoint+" and method "+method)
+            }
+          }
+          if(!annos['responses']){
+            annos['responses'] = JSON.stringify(standardResponses);
+          }
           try {
-            currentObj['produces'] = JSON.parse(annotations['produces']);
+            currentObj['responses'] = JSON.parse(annos['responses']);
           } catch (error) {
-            console.log('Annotation:Produces must be array object for endPoint '+endPoint+" and method "+method)
+            console.log('err',annos['responses'], error);
+            currentObj['responses'] = annos['responses'];
           }
+          retObj[endPoint][method] = currentObj;
         }
-        if(annotations['consumes']){
-          try {
-            currentObj['consumes'] = JSON.parse(annotations['consumes']);
-          } catch (error) {
-            console.log('Annotation:consumes must be array object for endPoint '+endPoint+" and method "+method)
-          }
-        }
-        if(!annotations['responses']){
-          annotations['responses'] = JSON.stringify(standardResponses);
-        }
-        currentObj['responses'] = JSON.parse(annotations['responses']);
-        retObj[endPoint][method] = currentObj;
       }
+    } catch (error) {
+      console.log(error);
+      console.log(annotationObject)
+      console.log(router)
+      process.exit(-1);
     }
     return retObj;
 }
+
 
 let joiToSwagger = function(schemaString){
   let schema = readSchema(schemaString);
@@ -272,23 +303,54 @@ let joiToSwagger = function(schemaString){
     parameters : []
   }
   let swaggered = j2s(schema).swagger;
+  
+  console.log(JSON.stringify(swaggered))
+  addDefinitions(swaggered);
   let props = swaggered.properties;
   if(meta.bodyObjKey){
     swag.definitions[meta.bodyObjKey] = swaggered.properties.body;
   }
   for(propKey in props){
       if(propKey == 'body'){
-        holder['parameters'].push(constructBodyParameter(meta, swaggered.required.indexOf('body') > -1));
+        try {
+          holder['parameters'].push(constructBodyParameter(meta, ( swaggered.required && swaggered.required.indexOf('body') > -1)));
+        } catch (error) {
+          console.log(error);
+          console.log(schemaString);
+          console.log(meta);
+          console.log(swaggered)
+          process.exit();
+        }
       }
       else if(propKey == 'query'){
         let arr = constructQueryParameter(meta, props[propKey])
         holder['parameters']  = holder['parameters'].concat(arr);
       }else if(propKey == 'params'){
-        let arr = constructParam(meta, props[propKey]);
+        try {
+          let arr = constructParam(meta, props[propKey]);
         holder['parameters']  = holder['parameters'].concat(arr);
+        } catch (error) {
+          console.log(error);
+          console.log(schema)
+          console.log(schemaString);
+          console.log(meta);
+          console.log(swaggered)
+          process.exit()
+        }
       }
   }
   return holder;
+}
+
+let addDefinitions = function(swaggered){
+  if(swaggered){
+    if("object" == swaggered.type){
+
+    }else if("array" == swaggered.type){
+
+    }
+  }
+  return;
 }
 
 let readSchema = function(schemaString){
@@ -334,10 +396,10 @@ readConfFile().then( () => {
   Object.assign(swag, conf.appMeta)
   processDir(workingPath(conf.routesFolder),[]).then( () => {
     console.log('Done');
-    writeJson.sync('swag.json', swag);
-    console.log("Wrote file : swag.json");
-    fs.writeFileSync(workingPath('swag.yaml'),yaml.stringify(swag));
-    console.log("Wrote file : swag.yaml");
+    writeJson.sync(`${conf.swaggerFileName}.json`, swag);
+    console.log(`Wrote file : ${conf.swaggerFileName}.json`);
+    fs.writeFileSync(workingPath(`${conf.swaggerFileName}.yaml`),yaml.stringify(swag));
+    console.log(`Wrote file : ${conf.swaggerFileName}.yaml`);
     process.exit(0);
   })
 })

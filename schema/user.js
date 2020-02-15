@@ -7,7 +7,7 @@ module.exports = {
         body: Joi.object().keys({
             name: Joi.string().trim().required(),
             email: Joi.string().email().trim().required()
-        }).required(),
+        }).required().description('testt').label("body"),
         bodyObjKey : 'user',
         desc : {
             bodyDescription : "User object that needs to be added",
@@ -45,8 +45,8 @@ module.exports = {
     },
     list: {
         query: Joi.object().keys({
-            searchTerm: Joi.string().trim().optional(),
-            sortField: Joi.string().trim().optional(),
+            searchTerm: Joi.string().trim().optional().description('Search term'),
+            sortField: Joi.string().trim().optional().description('Sort field'),
             sortBy: Joi.string().trim().optional(),
             offset: Joi.number().integer().optional(),
             limit: Joi.number().integer().optional()
@@ -73,4 +73,20 @@ module.exports = {
             }
         },
     },
+    test: {
+        body : Joi.object().keys({
+            profile : Joi.object().keys({
+              name : Joi.string(),
+              age : Joi.number(),
+              address : Joi.object().keys({
+                line1 : Joi.string(),
+                line2 : Joi.string()
+              }),
+              contact_info : Joi.array().items(Joi.object().keys({
+                mobile_number : Joi.string(),
+                type : Joi.string()
+              }))
+            })
+          })
+    }
 }
