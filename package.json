@@ -12,12 +12,12 @@
     "write-json-file": "^3.1.0"
   },
   "bin": {
-    "swagger": "./index.js"
+    "swaggerise": "./bin/swagger-generator.js"
   },
   "name": "swaggerise",
-  "version": "1.0.4",
+  "version": "1.0.9",
   "description": "Package to convert joi schema and metadata to swagger json.",
-  "main": "src/index.js",
+  "main": "node src/index.js",
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
